@@ -1,12 +1,10 @@
 ﻿using System;
-using System.Dynamic;
-using System.Linq;
 using System.Threading.Tasks;
-using ConsoleApp.DataAccess.Context;
-using ConsoleApp.DataAccess.Entity;
-using ConsoleApp.Infrastructure.Data;
-using ConsoleApp.Infrastructure.Models;
-using ConsoleApp.Infrastructure.Service;
+using DataAccess.Context;
+using Infrastructure.Data;
+using Infrastructure.Service;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace ConsoleApp
@@ -14,7 +12,10 @@ namespace ConsoleApp
     public class Program
     {
         private static IServiceProvider _serviceProvider;
-        static async Task Main()
+
+#pragma warning disable 1998
+        private static async Task Main()
+#pragma warning restore 1998
         {
             Console.WriteLine("Hello World!");
             RegisterService();
@@ -29,7 +30,7 @@ namespace ConsoleApp
             //data.Initialize(context);
 
 
-            // Get list student
+            //Get list student
             //foreach (var item in await studentService.GetList())
             //{
             //    Console.WriteLine($"Last Name: {item.LastName} " +
@@ -93,28 +94,33 @@ namespace ConsoleApp
             //                      $"StartDate: {item.StartDate}");
             //}
             // Instructor
-            var list = await instructorService.GetById(2, 2021);
-            foreach (var item in list.Instructors)
-            {
-                Console.WriteLine($"{item.LastName}" +
-                                  $"{item.FirstMidName}"+
-                                  $"{item.HireDate}"+
-                                  $"{item.CourseAssignments.Select(x=>x.Course.Title)}");
-            }
+            //var list = await instructorService.GetById(2, 2021);
+            //foreach (var item in list.Instructors)
+            //{
+            //    Console.WriteLine($"{item.LastName}" +
+            //                      $"{item.FirstMidName}"+
+            //                      $"{item.HireDate}"+
+            //                      $"{item.CourseAssignments.Select(x=>x.Course.Title)}");
+            //}
+            // Update Instructor and Course
+            //instructorService.Update(10, );
             DisposeServices();
         }
 
 
         private static void RegisterService()
         {
+            var config = LoadConfiguration();
+            var connectionString = config.GetConnectionString("ConnectionString");
             var services = new ServiceCollection()
-                .AddDbContext<SchoolContext>()
+                .AddDbContext<SchoolContext>(options => options.UseSqlServer(connectionString))
                 .AddSingleton<ICourseService, CourseService>()
                 .AddSingleton<IStudentService, StudentService>()
                 .AddSingleton<IEnrollmentService, EnrollmentService>()
                 .AddSingleton<IDepartmentService, DepartmentService>()
                 .AddSingleton<IInstructorService, InstructorService>()
-                .AddSingleton<IData, Data>();
+                .AddSingleton<IData, Data>()
+                .AddSingleton(config);
             _serviceProvider = services?.BuildServiceProvider();
         }
 
@@ -127,7 +133,14 @@ namespace ConsoleApp
                 disposable.Dispose();
             }
         }
+        protected static IConfiguration LoadConfiguration()
+        {
+            var builder = new ConfigurationBuilder()
+                .SetBasePath(AppDomain.CurrentDomain.BaseDirectory)
+                .AddJsonFile("appsettings.json", optional:true, reloadOnChange:true)
+                .Build();
+            return builder;
+        }
 
-        
     }
 }
