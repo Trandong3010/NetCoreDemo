@@ -25,5 +25,6 @@ namespace Infrastructure.Service
             var deparments = await _context.Departments.AsNoTracking().Include(x => x.Courses).ToListAsync();
             return deparments;
         }
+
     }
 }

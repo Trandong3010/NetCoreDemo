@@ -16,6 +16,7 @@ namespace Infrastructure.Service
         void Insert(EnrollmentModel model);
         void Update(EnrollmentModel model);
         void Delete(int id);
+        EnrollmentModel GetById(int id);
     }
 
     public class EnrollmentService : IEnrollmentService
@@ -58,6 +59,16 @@ namespace Infrastructure.Service
             if(enrollment == null) return;
             _context.Enrollments.Remove(enrollment);
             _context.SaveChanges();
+        }
+
+        public EnrollmentModel GetById(int id)
+        {
+	        var enrollment = _mapper.Map<EnrollmentModel>
+	        (_context.Enrollments
+		        .Include(x => x.Course)
+		        .Include(x => x.Student)
+		        .AsNoTracking().FirstOrDefault(x => x.EnrollmentID == id));
+	        return enrollment;
         }
     }
 }

@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Threading.Tasks;
+using Infrastructure.Models;
 using Infrastructure.Models.Instructors;
 using Infrastructure.Service;
 using Microsoft.AspNetCore.Mvc;
@@ -27,7 +28,12 @@ namespace WebAPI.Controllers
 		{
 			_service.Update(id, selectedCourses);
 			return NoContent();
+		}
 
+		[HttpGet("{id}/{courseId}")]
+		public async Task<IEnumerable<InstructorModelData>> GetById(int id, int courseId)
+		{
+			return await _service.GetById(id, courseId);
 		}
 	}
 }

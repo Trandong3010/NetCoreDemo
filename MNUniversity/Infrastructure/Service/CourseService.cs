@@ -17,6 +17,7 @@ namespace Infrastructure.Service
         void Insert(CourseModel model);
         void Update(CourseModel model);
         void Delete(int? id);
+        CourseModel GetById(int id);
     }
 
     public class CourseService : ICourseService
@@ -61,6 +62,17 @@ namespace Infrastructure.Service
             if(course == null) return;
             _context.Courses.Remove(course);
             _context.SaveChanges();
+        }
+
+        public CourseModel GetById(int id)
+        {
+	        var course = _mapper.Map<CourseModel>
+	        (_context.Courses
+		        .Include(x => x.Department)
+		        .Include(x => x.Enrollments)
+		        .Include(x => x.CourseAssignments)
+		        .AsNoTracking().FirstOrDefault(x => x.CourseID == id));
+	        return course;
         }
 
         //private List<Object> PopulateDepartmentsDropDownList(object selectedDepartment = null)

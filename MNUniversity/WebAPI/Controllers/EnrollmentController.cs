@@ -47,5 +47,11 @@ namespace WebAPI.Controllers
 			_service.Delete(id);
 			return NoContent();
 		}
+
+		[HttpGet("id")]
+		public EnrollmentModel GetById(int id)
+		{
+			return _service.GetById(id);
+		}
 	}
 }

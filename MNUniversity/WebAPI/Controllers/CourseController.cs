@@ -1,13 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
+﻿using System.Collections.Generic;
 using System.Threading.Tasks;
-using DataAccess.Entity;
 using Infrastructure.Models.Courses;
 using Infrastructure.Service;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Server.IIS;
 
 namespace WebAPI.Controllers
 {
@@ -46,6 +41,12 @@ namespace WebAPI.Controllers
 		{
 			_service.Delete(id);
 			return NoContent();
+		}
+
+		[HttpGet("id")]
+		public CourseModel GetById(int id)
+		{
+			return _service.GetById(id);
 		}
 	}
 }

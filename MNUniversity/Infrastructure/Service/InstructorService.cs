@@ -13,7 +13,7 @@ namespace Infrastructure.Service
     public interface IInstructorService
     {
 	    Task<IEnumerable<InstructorModel>> GetList();
-        Task<InstructorIndexData> GetById(int? id, int? courseId);
+	    Task<IEnumerable<InstructorModelData>> GetById(int? id, int? courseId);
         void Update(int? id, string[] selectedCourses);
     }
 
@@ -33,38 +33,11 @@ namespace Infrastructure.Service
 	        return _mapper.Map<IEnumerable<InstructorModel>>(await _context.Instructors.AsNoTracking().ToListAsync());
         }
 
-        public async Task<InstructorIndexData> GetById(int? id, int? courseId)
+        public async Task<IEnumerable<InstructorModelData>> GetById(int? id, int? courseId)
         {
-            var viewModel = new InstructorIndexData();
-            viewModel.Instructors = await _context.Instructors
-                .Include(x => x.OfficeAssignment)
-                .Include(x => x.CourseAssignments)
-                .ThenInclude(x => x.Course)
-                .ThenInclude(x => x.Enrollments)
-                .ThenInclude(x => x.Student)
-                .Include(x => x.CourseAssignments)
-                .ThenInclude(x => x.Course)
-                .ThenInclude(x => x.Department).AsNoTracking().ToListAsync();
-
-            if (id != null)
-            {
-                Instructor instructor = viewModel.Instructors.Single(x => x.ID == id);
-                viewModel.Courses = instructor.CourseAssignments.Select(x => x.Course);
-            }
-
-            if (courseId != null)
-            {
-                var selectedCourse = viewModel.Courses.Single(x => x.CourseID == courseId);
-                await _context.Entry(selectedCourse).Collection(x => x.Enrollments).LoadAsync();
-                foreach (Enrollment enrollment in selectedCourse.Enrollments)
-                {
-                    await _context.Entry(enrollment).Reference(x => x.Student).LoadAsync();
-                }
-
-                viewModel.Enrollments = selectedCourse.Enrollments;
-            }
-            return viewModel;
-        }
+	        var viewModel =  _mapper.Map<IEnumerable<InstructorModelData>>(await _context.Instructors.AsNoTracking().Include(x => x.CourseAssignments).ThenInclude(x => x.Course).ThenInclude(x => x.Enrollments).FirstOrDefaultAsync(x => x.ID == id));
+	        return viewModel;
+		}
 
         public void Update(int? id, string[] selectedCourses)
         {
