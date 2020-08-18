@@ -17,7 +17,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Folder Include="Areas\Identity\Data\" />
+    <Folder Include="Areas\Identity\Pages\" />
+    <Folder Include="Areas\Identity\Pages\Account\" />
     <Folder Include="Areas\Identity\Pages\Account\Manage\" />
+    <Folder Include="Models\" />
   </ItemGroup>
 
 </Project>

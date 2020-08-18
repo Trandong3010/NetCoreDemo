@@ -47,6 +47,7 @@ namespace WebAPI
 			services.AddTransient<IEnrollmentService, EnrollmentService>();
 			services.AddTransient<IDepartmentService, DepartmentService>();
 			services.AddTransient<IInstructorService, InstructorService>();
+			services.AddTransient<IUserService, UserService>();
 
 			services.AddSwaggerGen(c => c.SwaggerDoc("v1",
 				new OpenApiInfo {Title = "MNUniversity", Version = "v1", Description = "API to University"}));
@@ -98,6 +99,7 @@ namespace WebAPI
 			app.UseRouting();
 
 			app.UseAuthorization();
+			app.UseAuthentication();
 
 			app.UseEndpoints(endpoints =>
 			{
