@@ -7,9 +7,9 @@ namespace Infrastructure.Models.Users
 {
 	public class AuthenticateModel
 	{
-		[Required]
-		public string Username { get; set; }
-		[Required]
+		[Required, MaxLength(256)]
+		public string UserName { get; set; }
+		[Required, DataType(DataType.Password)]
 		public string Password { get; set; }
 	}
 }

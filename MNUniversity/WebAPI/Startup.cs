@@ -2,14 +2,18 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Mime;
+using System.Text;
 using System.Threading.Tasks;
 using AutoMapper;
 using DataAccess.Context;
 using Hellang.Middleware.ProblemDetails;
 using Infrastructure.Automapper;
+using Infrastructure.Common.Authentication;
 using Infrastructure.Common.HttpResponseException;
+using Infrastructure.Jwt;
 using Infrastructure.Models;
 using Infrastructure.Service;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -22,18 +26,21 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 
 namespace WebAPI
 {
 	public class Startup
 	{
-		public Startup(IConfiguration configuration)
+		public Startup(IConfiguration configuration, IWebHostEnvironment environment)
 		{
 			Configuration = configuration;
+			Environment = environment;
 		}
 
 		public IConfiguration Configuration { get; }
+		public IWebHostEnvironment Environment;
 
 		// This method gets called by the runtime. Use this method to add services to the container.
 		public void ConfigureServices(IServiceCollection services)
@@ -47,7 +54,7 @@ namespace WebAPI
 			services.AddTransient<IEnrollmentService, EnrollmentService>();
 			services.AddTransient<IDepartmentService, DepartmentService>();
 			services.AddTransient<IInstructorService, InstructorService>();
-			services.AddTransient<IUserService, UserService>();
+			services.AddScoped<IUserService, UserService>();
 
 			services.AddSwaggerGen(c => c.SwaggerDoc("v1",
 				new OpenApiInfo {Title = "MNUniversity", Version = "v1", Description = "API to University"}));
@@ -76,6 +83,17 @@ namespace WebAPI
 				options.SerializerSettings.ReferenceLoopHandling = Newtonsoft.Json.ReferenceLoopHandling.Ignore
 			);
 			services.AddAutoMapper(typeof(AutoMapping));
+
+			services.AddCors();
+			services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
+
+			// configure strongly typed setting objects
+			services.Configure<AppSettings>(Configuration.GetSection("AppSettings"));
+			services.AddAuthentication(x =>
+			{
+				x.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+				x.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+			});
 		}
 
 		// This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -94,12 +112,19 @@ namespace WebAPI
 
 			app.UseExceptionHandler(env.IsDevelopment() ? "/error-local-development" : "/error");
 
+			// global core policy
+			app.UseCors(x => x.AllowAnyOrigin()
+				.AllowAnyMethod()
+				.AllowAnyHeader());
+
 			app.UseHttpsRedirection();
 
 			app.UseRouting();
 
 			app.UseAuthorization();
 			app.UseAuthentication();
+
+			app.UseMiddleware<JwtMiddleware>();
 
 			app.UseEndpoints(endpoints =>
 			{

@@ -1,7 +1,10 @@
 ﻿using System;
 using System.CodeDom;
 using System.Collections.Generic;
+using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
+using System.Security.Claims;
+using System.Text;
 using System.Threading.Tasks;
 using Infrastructure.Common.Authentication;
 using Infrastructure.Models.Users;
@@ -9,12 +12,12 @@ using Infrastructure.Service;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.IdentityModel.Tokens;
 
 namespace WebAPI.Controllers
 {
 	[Route("[controller]")]
 	[ApiController]
-	[Authorize]
 	public class UserController : ControllerBase
 	{
 		private readonly IUserService _service;
@@ -40,7 +43,8 @@ namespace WebAPI.Controllers
 			}
 		}
 
-		[HttpPost]
+		[HttpGet]
+		[Authorize]
 		public async Task<IEnumerable<UserModel>> GetList()
 		{
 			return await _service.GetAll();
@@ -48,16 +52,13 @@ namespace WebAPI.Controllers
 
 		[AllowAnonymous]
 		[HttpPost("authenticate")]
-		public IActionResult Authenticate([FromBody] AuthenticateModel model)
+		public IActionResult Authenticate([FromBody]AuthenticateModel model)
 		{
-			var user = _service.Authenticate(model.Username, model.Password);
+			var user = _service.Authenticate(model.UserName, model.Password);
 
-			if (user == null) return BadRequest(new {message = "Username or password is incorrect"});
-			
-			// var tokenHandler = new JwtSecurityTokenHandler();
-			
-			
-			return null;
+			if(user == null) return BadRequest(new { message = "Username or password is incorrect" });
+
+			return Ok(user);
 		}
 	}
 }
