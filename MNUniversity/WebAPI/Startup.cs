@@ -1,31 +1,24 @@
 using System;
-using System.Collections.Generic;
-using System.Linq;
+using System.IdentityModel.Tokens.Jwt;
 using System.Net.Mime;
 using System.Text;
-using System.Threading.Tasks;
 using AutoMapper;
 using DataAccess.Context;
 using Hellang.Middleware.ProblemDetails;
-using Infrastructure.Automapper;
-using Infrastructure.Common.Authentication;
 using Infrastructure.Common.HttpResponseException;
-using Infrastructure.Jwt;
 using Infrastructure.Models;
 using Infrastructure.Service;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.HttpsPolicy;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Infrastructure;
+using Microsoft.AspNetCore.Server.IISIntegration;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 
@@ -48,7 +41,7 @@ namespace WebAPI
 			services.AddControllers();
 
 			services.AddDbContext<SchoolContext>(options =>
-				options.UseSqlServer(Configuration.GetConnectionString("ConnectionString")));
+				options.UseSqlServer(Configuration.GetConnectionString("ConnectionString"), b => b.MigrationsAssembly("DataAccess")));
 			services.AddTransient<IStudentService, StudentService>();
 			services.AddTransient<ICourseService, CourseService>();
 			services.AddTransient<IEnrollmentService, EnrollmentService>();
@@ -87,17 +80,66 @@ namespace WebAPI
 			services.AddCors();
 			services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
 
-			// configure strongly typed setting objects
-			services.Configure<AppSettings>(Configuration.GetSection("AppSettings"));
-			services.AddAuthentication(x =>
+			// ===== Add Jwt Authentication ========
+			JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear(); // => remove default claims
+			services
+				.AddAuthentication(options =>
+				{
+					options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+					options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
+					options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+
+				})
+				.AddJwtBearer(cfg =>
+				{
+					cfg.RequireHttpsMetadata = false;
+					cfg.SaveToken = true;
+					cfg.TokenValidationParameters = new TokenValidationParameters
+					{
+						ValidIssuer = Configuration["JwtIssuer"],
+						ValidAudience = Configuration["JwtIssuer"],
+						IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(Configuration["JwtKey"])),
+						ClockSkew = TimeSpan.Zero // remove delay of token when expire
+					};
+				});
+
+			// Add Identity
+			services.AddIdentity<IdentityUser, IdentityRole>(options => options.SignIn.RequireConfirmedAccount = true)
+				.AddEntityFrameworkStores<SchoolContext>();
+
+			services.Configure<IdentityOptions>(options =>
 			{
-				x.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-				x.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+				// Defaul Lockout settings
+				options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(5);
+				options.Lockout.MaxFailedAccessAttempts = 5;
+				options.Lockout.AllowedForNewUsers = true;
+
+				// Default Password settings
+				options.Password.RequireDigit = true;
+				options.Password.RequireLowercase = true;
+				options.Password.RequireNonAlphanumeric = true;
+				options.Password.RequireUppercase = true;
+				options.Password.RequiredLength = 6;
+				options.Password.RequiredUniqueChars = 1;
+
+				// Default SignIn Setting.
+				options.SignIn.RequireConfirmedEmail = false;
+				options.SignIn.RequireConfirmedPhoneNumber = false;
+
+				// Default User settings.
+				options.User.AllowedUserNameCharacters =
+					"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._@+";
+				options.User.RequireUniqueEmail = false;
 			});
+
+			services.Configure<PasswordHasherOptions>(options => { options.IterationCount = 12000; });
+
+			// IIS/IIS Express
+			services.AddAuthentication(IISDefaults.AuthenticationScheme);
 		}
 
 		// This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
-		public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
+		public void Configure(IApplicationBuilder app, IWebHostEnvironment env, SchoolContext context)
 		{
 			app.UseProblemDetails();
 			// Enable middleware to serve generated Swagger as a JSON endpoint
@@ -123,8 +165,6 @@ namespace WebAPI
 
 			app.UseAuthorization();
 			app.UseAuthentication();
-
-			app.UseMiddleware<JwtMiddleware>();
 
 			app.UseEndpoints(endpoints =>
 			{

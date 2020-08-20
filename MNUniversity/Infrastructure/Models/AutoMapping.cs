@@ -8,6 +8,7 @@ using Infrastructure.Models.Enrollment;
 using Infrastructure.Models.Instructors;
 using Infrastructure.Models.Students;
 using Infrastructure.Models.Users;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore.Internal;
 
 namespace Infrastructure.Models
@@ -39,10 +40,10 @@ namespace Infrastructure.Models
 			//CreateMap<DataAccess.Entity.Enrollment, InstructorModelData>()
 			//	.ForMember(x => x.Instructors, opt => opt.Ignore());
 
-			CreateMap<AspNetUsers, UserModel>();
-			CreateMap<UserModel, AspNetUsers>();
-			CreateMap<AspNetUsers, RegisterModel>();
-			CreateMap<RegisterModel, AspNetUsers>();
+			CreateMap<IdentityUser, UserModel>();
+			CreateMap<UserModel, IdentityUser>();
+			CreateMap<IdentityUser, RegisterModel>();
+			CreateMap<RegisterModel, IdentityUser>();
 		}
 	}
 }

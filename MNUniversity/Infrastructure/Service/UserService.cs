@@ -8,110 +8,96 @@ using System.Threading.Tasks;
 using AutoMapper;
 using DataAccess.Context;
 using DataAccess.Entity;
-using Infrastructure.Common.Authentication;
 using Infrastructure.Models.Users;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 
 namespace Infrastructure.Service
 {
 	public interface IUserService
 	{
-		AuthenticateResponse Authenticate(string username, string password);
-		Task<IEnumerable<UserModel>> GetAll();
-		AspNetUsers GetById(string id);
-		AspNetUsers Create(AspNetUsers user, string password);
-		void Register([FromBody]RegisterModel model);
+		Task<object> Authenticate(string username, string password);
+		Task<object> GetAll();
+		Task<object> Register([FromBody]RegisterModel model);
 	}
 
 	public class UserService : IUserService
 	{
-		protected readonly SchoolContext _context;
 		private readonly IMapper _mapper;
-		private readonly AppSettings _appSettings;
+		private readonly SignInManager<IdentityUser> _signInManager;
+		private readonly UserManager<IdentityUser> _userManager;
+		private readonly IConfiguration _configuration;
 
-		public UserService(SchoolContext context, IMapper mapper, IOptions<AppSettings> appSettings)
+		public ClaimsPrincipal User { get; private set; }
+
+		public UserService(IMapper mapper)
 		{
-			_context = context;
 			_mapper = mapper;
-			_appSettings = appSettings.Value;
 		}
 
-		public AuthenticateResponse Authenticate(string username, string password)
+		public async Task<object> Authenticate(string Email, string Password)
 		{
-			if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(password)) return null;
+			if (string.IsNullOrEmpty(Email) || string.IsNullOrEmpty(Password)) return null;
 
+			var result = await _signInManager.PasswordSignInAsync(Email, Password, false, false);
 
-			var user = _context.AspNetUsers.SingleOrDefault(x => x.UserName == username && x.PasswordHash == password);
-
-			// detect user exists
-			if (user == null) return null;
-
-			////detect password is correct
-
-			//if (!VerifyPasswordHash(password, Convert.FromBase64String(user.PasswordHash))) return null;
-
-			// authentication successful so generate jwt token
-			var token = GenerateJwtToken(user);
-
-			// authentication successful
-			return new AuthenticateResponse(user, token);
-		}
-
-		private string GenerateJwtToken(AspNetUsers user)
-		{
-			var tokenHandler = new JwtSecurityTokenHandler();
-			var key = Encoding.ASCII.GetBytes(_appSettings.Secret);
-			var tokenDescriptor = new SecurityTokenDescriptor
+			if (result.Succeeded)
 			{
-				Subject = new ClaimsIdentity(new Claim[]
-				{
-					new Claim(ClaimTypes.Name, user.Id)
-				}),
-				Expires = DateTime.UtcNow.AddDays(7),
-				SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
+				var appUser = _userManager.Users.SingleOrDefault(r => r.Email == Email);
+				return await GenerateJwtToken(Email, appUser);
+			}
+
+			throw new ApplicationException("INVALID_LOGIN_ATTEMPT");
+		}
+
+		private async Task<object> GenerateJwtToken(string email, IdentityUser user)
+		{
+			var claims = new List<Claim>
+			{
+				new Claim(JwtRegisteredClaimNames.Sub, email),
+				new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+				new Claim(ClaimTypes.NameIdentifier, user.Id)
 			};
 
-			var token = tokenHandler.CreateToken(tokenDescriptor);
-			return tokenHandler.WriteToken(token);
+			var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["JwtKey"]));
+			var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+			var expires = DateTime.Now.AddDays(Convert.ToDouble(_configuration["JwtExpireDays"]));
+
+			var token = new JwtSecurityToken(
+				_configuration["JwtIssuer"],
+				_configuration["JwtIssuer"],
+				claims,
+				expires: expires,
+				signingCredentials: creds
+			);
+
+			return new JwtSecurityTokenHandler().WriteToken(token);
 		}
 
-		public async Task<IEnumerable<UserModel>> GetAll()
+		public async Task<object> GetAll()
 		{
-			var list = await _context.AspNetUsers.AsNoTracking().ToListAsync();
-			return _mapper.Map<IEnumerable<UserModel>>(list);
+			return await _userManager.Users.ToListAsync();
 		}
 
-		public AspNetUsers GetById(string id)
+		public async Task<object> Register([FromBody]RegisterModel model)
 		{
-			return _mapper.Map<AspNetUsers>(_context.AspNetUsers.AsNoTracking().FirstOrDefault(x => x.Id == id));
-		}
+			var user = new IdentityUser
+			{
+				UserName = model.Email,
+				Email = model.Email
+			};
+			var result = await _userManager.CreateAsync(user, model.Password);
 
-		public AspNetUsers Create(AspNetUsers user, string password)
-		{
-			if (string.IsNullOrWhiteSpace(password)) throw new AppException("Password is required");
+			if (result.Succeeded)
+			{
+				await _signInManager.SignInAsync(user, false);
+				return await GenerateJwtToken(model.Email, user);
+			}
 
-			if (_context.AspNetUsers.Any(x => x.UserName == user.UserName)) throw new AppException("Username \"" + user.UserName + "\" is already taken");
-
-			//byte[] passwordHash;
-			//CreatePasswordHash(password, out passwordHash);
-
-			//user.PasswordHash = Convert.ToBase64String(passwordHash);
-			user.PasswordHash = password;
-			user.Id = (Guid.NewGuid()).ToString();
-			_context.AspNetUsers.Add(user);
-			_context.SaveChanges();
-
-			return user;
-		}
-
-
-		public void Register([FromBody]RegisterModel model)
-		{
-			var user = _mapper.Map<AspNetUsers>(model);
-			Create(user, model.Password);
+			throw new ApplicationException("UNKNOWN_ERROR");
 		}
 	}
 }

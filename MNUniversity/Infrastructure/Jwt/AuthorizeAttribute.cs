@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using DataAccess.Entity;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 
@@ -13,7 +14,7 @@ namespace Infrastructure.Jwt
 	{
 		public void OnAuthorization(AuthorizationFilterContext context)
 		{
-			var user = (AspNetUsers) context.HttpContext.Items["User"];
+			var user = (IdentityUser) context.HttpContext.Items["User"];
 			if (user == null)
 			{
 				// not logged in

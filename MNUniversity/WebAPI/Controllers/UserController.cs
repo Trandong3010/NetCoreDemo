@@ -44,17 +44,16 @@ namespace WebAPI.Controllers
 		}
 
 		[HttpGet]
-		[Authorize]
-		public async Task<IEnumerable<UserModel>> GetList()
+		public async Task<object> GetList()
 		{
 			return await _service.GetAll();
 		}
 
 		[AllowAnonymous]
-		[HttpPost("authenticate")]
+		[HttpPost("login")]
 		public IActionResult Authenticate([FromBody]AuthenticateModel model)
 		{
-			var user = _service.Authenticate(model.UserName, model.Password);
+			var user = _service.Authenticate(model.Email, model.Password);
 
 			if(user == null) return BadRequest(new { message = "Username or password is incorrect" });
 
