@@ -31,11 +31,13 @@ namespace Infrastructure.Service
 		private readonly UserManager<IdentityUser> _userManager;
 		private readonly IConfiguration _configuration;
 
-		public ClaimsPrincipal User { get; private set; }
 
-		public UserService(IMapper mapper)
+		public UserService(IMapper mapper, SignInManager<IdentityUser> signInManager, UserManager<IdentityUser> userManager, IConfiguration configuration)
 		{
 			_mapper = mapper;
+			_signInManager = signInManager;
+			_userManager = userManager;
+			this._configuration = configuration;
 		}
 
 		public async Task<object> Authenticate(string Email, string Password)
